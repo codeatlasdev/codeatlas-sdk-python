@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "codeatlas"
+name = "codeatlas-sdk"
 version = "0.1.0"
 description = "Typed Python client for the public CodeAtlas API (https://codeatlas.com.br/api/v1)."
 readme = "README.md"

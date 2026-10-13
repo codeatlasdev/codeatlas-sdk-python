@@ -1,13 +1,14 @@
-# codeatlas (Python)
+# codeatlas-sdk (Python)
 
 Typed Python client for the public [CodeAtlas](https://codeatlas.com.br) API. Read-only, no authentication, no dependencies.
 API docs: https://codeatlas.com.br/docs · OpenAPI: https://codeatlas.com.br/openapi.json
 
 ```sh
-pip install codeatlas
+pip install codeatlas-sdk
 ```
 
 ```python
+# import name is `codeatlas`
 from codeatlas import CodeAtlas, CodeAtlasError
 
 client = CodeAtlas()  # base_url defaults to https://codeatlas.com.br/api/v1
