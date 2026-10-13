@@ -28,6 +28,23 @@ except CodeAtlasError as error:
     print(error.status, error.code, error.hint)
 ```
 
+## Contact requests (needs OAuth credentials)
+
+```python
+from codeatlas import CodeAtlas, SANDBOX_BASE_URL
+
+credentials = CodeAtlas.register("my-agent")  # store the secret, it is shown once
+client = CodeAtlas(credentials=credentials)   # base_url=SANDBOX_BASE_URL validates without storing or sending
+
+request = client.contact_requests.create(
+    "Ana Souza", "ana@example.com", "Quero um diagnóstico do meu atendimento.",
+    service_slug="zelvo-ai", idempotency_key="8f3c2a10-5d4e-4b7a-9c1e-2f6a7b8c9d0e",
+)
+print(request.id, request.status)  # cr_..., "received"
+```
+
+The client fetches and caches the OAuth token (client credentials) for you.
+
 ## Development
 
 ```sh
