@@ -43,6 +43,14 @@ request = client.contact_requests.create(
 print(request.id, request.status)  # cr_..., "received"
 ```
 
+```python
+results = client.services.batch(["zelvo-ai", "consultoria"])  # up to 50 slugs; unknown ones are 404 items
+
+job = client.exports.create("csv")          # "jsonl", "csv" or "md"; 10 per hour per client
+job = client.exports.wait(job.id)
+file = client.exports.download(job.id)
+```
+
 The client fetches and caches the OAuth token (client credentials) for you.
 
 ## Development

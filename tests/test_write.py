@@ -14,6 +14,12 @@ import codeatlas
 from codeatlas import CodeAtlas, CodeAtlasError, Credentials
 
 calls = []
+polls = {"n": 0}
+
+
+def _job(status, fmt):
+    return {"id": "exp_1", "status": status, "format": fmt, "created_at": "t", "expires_at": "t",
+            "download_url": "https://x/d" if status == "succeeded" else None}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -47,12 +53,36 @@ class Handler(BaseHTTPRequestHandler):
             return self._reply(
                 201, {"data": {"id": "cr_1", "status": "received", "delivery": "stored", "created_at": "2026-01-01T00:00:00Z"}}
             )
+        if self.path == "/api/v1/services/batch":
+            slugs = json.loads(body)["slugs"]
+            return self._reply(200, {"count": len(slugs), "results": [
+                {"slug": s, "status": 200, "data": {"slug": s, "name": "N", "description": "d", "serviceType": "t",
+                 "url": "https://x", "capabilities": ["a"], "deliveryTimeline": "w"}} if s == "known"
+                else {"slug": s, "status": 404, "error": {"code": "not_found", "message": "no", "hint": "list"}}
+                for s in slugs]})
+        if self.path == "/api/v1/exports":
+            return self._reply(202, {"data": _job("queued", json.loads(body)["format"])})
+        self._reply(404, {"error": {"code": "not_found", "message": "x", "hint": "y"}})
+
+    def do_GET(self):
+        calls.append((self.path, {k.lower(): v for k, v in self.headers.items()}, ""))
+        if self.path == "/api/v1/exports/exp_1":
+            polls["n"] += 1
+            return self._reply(200, {"data": _job("running" if polls["n"] < 3 else "succeeded", "csv")})
+        if self.path == "/api/v1/exports/exp_1/download":
+            raw = b"slug,name\r\nknown,Known\r\n"
+            self.send_response(200)
+            self.send_header("content-type", "text/csv")
+            self.send_header("content-length", str(len(raw)))
+            self.end_headers()
+            return self.wfile.write(raw)
         self._reply(404, {"error": {"code": "not_found", "message": "x", "hint": "y"}})
 
 
 @pytest.fixture()
 def origin(monkeypatch):
     calls.clear()
+    polls["n"] = 0
     server = HTTPServer(("127.0.0.1", 0), Handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     url = f"http://127.0.0.1:{server.server_port}"
@@ -95,3 +125,25 @@ def test_oauth_and_api_errors(origin):
     with pytest.raises(CodeAtlasError) as api:
         ok.contact_requests.create("Ana", "", "mensagem longa ok")
     assert (api.value.status, api.value.code, api.value.hint) == (400, "bad_request", "Use a valid email.")
+
+
+def test_batch_returns_items_without_raising(origin):
+    results = CodeAtlas(base_url=origin + "/api/v1").services.batch(["known", "nope"])
+    assert [(r.slug, r.status) for r in results] == [("known", 200), ("nope", 404)]
+    assert results[0].data.slug == "known"
+    assert results[1].error["code"] == "not_found"
+
+
+def test_exports_create_wait_download(origin):
+    client = CodeAtlas(base_url=origin + "/api/v1", credentials=Credentials("ca_1", "cas_1"))
+    job = client.exports.create("csv")
+    assert job.status == "queued"
+    assert client.exports.wait(job.id, interval=0.01).status == "succeeded"
+    assert client.exports.download(job.id) == "slug,name\r\nknown,Known\r\n"
+
+
+def test_exports_wait_times_out(origin):
+    client = CodeAtlas(base_url=origin + "/api/v1", credentials=Credentials("ca_1", "cas_1"))
+    polls["n"] = -10_000  # stays "running"
+    with pytest.raises(TimeoutError):
+        client.exports.wait("exp_1", interval=0.01, timeout=0.05)
